@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}JR E-Shop{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'JRShop/css/base.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Floating Particles -->
+    <div class="particle" style="width: 10px; height: 10px; left: 10%; animation-delay: 0s;"></div>
+    <div class="particle" style="width: 15px; height: 15px; left: 20%; animation-delay: 2s;"></div>
+    <div class="particle" style="width: 8px; height: 8px; left: 30%; animation-delay: 4s;"></div>
+    <div class="particle" style="width: 12px; height: 12px; left: 40%; animation-delay: 1s;"></div>
+    <div class="particle" style="width: 10px; height: 10px; left: 50%; animation-delay: 3s;"></div>
+    <div class="particle" style="width: 14px; height: 14px; left: 60%; animation-delay: 5s;"></div>
+    <div class="particle" style="width: 9px; height: 9px; left: 70%; animation-delay: 2.5s;"></div>
+    <div class="particle" style="width: 11px; height: 11px; left: 80%; animation-delay: 4.5s;"></div>
+    <div class="particle" style="width: 13px; height: 13px; left: 90%; animation-delay: 1.5s;"></div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    <script src="{% static 'JRShop/js/base.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
