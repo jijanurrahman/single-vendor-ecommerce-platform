@@ -14,9 +14,9 @@
         <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
         <div class="navbar-menu">
             {% if user.is_authenticated %}
-                <a href="#">Products</a>
-                <a href="#">Categories</a>
-                <a href="#">Cart</a>
+                <a href="{% url 'product_list' %}">Products</a>
+                <a href="{% url 'product_list' %}">Categories</a>
+                <a href="{% url 'view_cart' %}">Cart</a>
                 <div class="user-info">
                     <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
                     <span>{{ user.username }}</span>
@@ -42,8 +42,8 @@
                 <p class="hero-subtitle">Your one-stop destination for quality products</p>
             {% endif %}
             <div class="hero-buttons">
-                <a href="#" class="hero-btn hero-btn-primary">Shop Now</a>
-                <a href="#" class="hero-btn hero-btn-secondary">View Categories</a>
+                <a href="{% url 'product_list' %}" class="hero-btn hero-btn-primary">Shop Now</a>
+                <a href="{% url 'product_list' %}" class="hero-btn hero-btn-secondary">View Categories</a>
             </div>
         </div>
     </section>
@@ -125,7 +125,7 @@
             </div>
             {% else %}
             <div class="hero-buttons">
-                <a href="#" class="hero-btn hero-btn-primary">Browse Products</a>
+                <a href="{% url 'product_list' %}" class="hero-btn hero-btn-primary">Browse Products</a>
             </div>
             {% endif %}
         </div>

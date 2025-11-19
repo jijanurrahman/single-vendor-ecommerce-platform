@@ -1,0 +1,197 @@
+{% extends 'JRShop/base.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }} - JR E-Shop{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'JRShop/css/product_detail.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="navbar-content">
+        <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
+        <div class="navbar-menu">
+            {% if user.is_authenticated %}
+                <a href="{% url 'product_list' %}" class="nav-link active">Products</a>
+                <a href="{% url 'product_list' %}" class="nav-link">Categories</a>
+                <a href="{% url 'view_cart' %}" class="nav-link cart-link">
+                    Cart
+                    {% if cart_items_count %}
+                    <span class="cart-badge">{{ cart_items_count }}</span>
+                    {% endif %}
+                </a>
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <span>{{ user.username }}</span>
+                </div>
+                <a href="{% url 'user_logout' %}" class="btn btn-logout">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
+                <a href="{% url 'register' %}" class="btn btn-secondary">Register</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<div class="product-detail-container">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{% url 'home' %}">Home</a>
+        <span class="separator">/</span>
+        <a href="{% url 'product_list' %}">Products</a>
+        <span class="separator">/</span>
+        <a href="{% url 'product_list_by_category' product.category.slug %}">{{ product.category.name }}</a>
+        <span class="separator">/</span>
+        <span class="current">{{ product.name }}</span>
+    </div>
+
+    <!-- Main Product Section -->
+    <div class="product-main">
+        <!-- Product Image -->
+        <div class="product-image-section">
+            <div class="product-image-wrapper">
+                {% if product.image %}
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="product-image-large">
+                {% else %}
+                <div class="product-image-placeholder-large">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Product Details -->
+        <div class="product-details-section">
+            <!-- Header -->
+            <div class="product-header">
+                <h1 class="product-title">{{ product.name }}</h1>
+                <p class="product-category-badge">{{ product.category.name }}</p>
+            </div>
+
+            <!-- Price Section -->
+            <div class="price-section">
+                {% if product.has_discount %}
+                <div class="price-display-discount">
+                    <div class="price-row">
+                        <span class="original-price-label">Original Price:</span>
+                        <span class="original-price-value">৳{{ product.price }}</span>
+                    </div>
+                    <div class="price-row discount-row">
+                        <span class="discount-label">Discount Price:</span>
+                        <span class="discount-value">৳{{ product.discount_price }}</span>
+                    </div>
+                    <div class="discount-info-badge">
+                        <span class="save-amount">Save ৳{{ product.price|add:product.discount_price|add:"-" }}</span>
+                        <span class="discount-pct">({{ product.get_discount_percentage }}% OFF)</span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="price-display">
+                    <span class="currency">৳</span>
+                    <span class="amount">{{ product.price }}</span>
+                </div>
+                {% endif %}
+                <div class="stock-info {% if product.stock > 0 %}in-stock{% else %}out-of-stock{% endif %}">
+                    {% if product.stock > 0 %}
+                        <span class="stock-status">✓ In Stock</span>
+                        <span class="stock-count">({{ product.stock }} available)</span>
+                    {% else %}
+                        <span class="stock-status">✗ Out of Stock</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="description-section">
+                <h3 class="section-title">Description</h3>
+                <p class="product-description">{{ product.description }}</p>
+            </div>
+
+            <!-- Add to Cart Section -->
+            <div class="cart-section">
+                {% if product.stock > 0 %}
+                    {% if is_in_cart %}
+                    <button class="add-to-cart-btn-large already-added" disabled>
+                        <span class="btn-icon">✓</span>
+                        <span class="btn-text">Already Added</span>
+                    </button>
+                    {% else %}
+                    <form method="POST" action="{% url 'add_to_cart' product.id %}" class="add-to-cart-form">
+                        {% csrf_token %}
+                        <button type="submit" class="add-to-cart-btn-large">
+                            <span class="btn-icon">🛒</span>
+                            <span class="btn-text">Add to Cart</span>
+                        </button>
+                    </form>
+                    {% endif %}
+                {% else %}
+                <button class="add-to-cart-btn-large disabled" disabled>
+                    <span class="btn-icon">❌</span>
+                    <span class="btn-text">Out of Stock</span>
+                </button>
+                {% endif %}
+                
+                <a href="{% url 'view_cart' %}" class="view-cart-btn">
+                    <span class="btn-icon">👜</span>
+                    <span class="btn-text">View Cart</span>
+                </a>
+            </div>
+
+            <!-- Product Meta -->
+            <div class="product-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Product ID:</span>
+                    <span class="meta-value">#{{ product.id }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Category:</span>
+                    <a href="{% url 'product_list_by_category' product.category.slug %}" class="meta-value link">
+                        {{ product.category.name }}
+                    </a>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Added:</span>
+                    <span class="meta-value">{{ product.created_at|date:"M d, Y" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Products Section -->
+    {% if related_products %}
+    <section class="related-products-section">
+        <h2 class="section-title">Related Products</h2>
+        <div class="related-products-grid">
+            {% for related in related_products %}
+            <div class="related-product-card">
+                <div class="related-image-container">
+                    {% if related.image %}
+                    <img src="{{ related.image.url }}" alt="{{ related.name }}" class="related-image">
+                    {% else %}
+                    <div class="related-image-placeholder">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="related-info">
+                    <h4 class="related-name">{{ related.name }}</h4>
+                    <p class="related-price">৳{{ related.price }}</p>
+                    <a href="{% url 'product_detail' related.slug %}" class="related-link">View Details →</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'JRShop/js/product_detail.js' %}"></script>
+{% endblock %}
