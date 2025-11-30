@@ -1,0 +1,242 @@
+{% extends 'JRShop/base.html' %}
+{% load static %}
+
+{% block title %}My Profile - JR E-Shop{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'JRShop/css/profile.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="navbar-content">
+        <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
+        <div class="navbar-menu">
+            {% if user.is_authenticated %}
+                <a href="{% url 'product_list' %}" class="nav-link">
+                    <span class="nav-icon">🛍️</span>
+                    <span>Products</span>
+                </a>
+                <a href="{% url 'view_cart' %}" class="nav-link cart-link">
+                    <span class="nav-icon">🛒</span>
+                    <span>Cart</span>
+                    {% if cart_items_count %}
+                    <span class="cart-badge">{{ cart_items_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'profile' %}" class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <span>{{ user.username }}</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<div class="profile-container">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="header-content">
+            <div class="user-avatar-large">{{ user.username|slice:":1"|upper }}</div>
+            <div class="user-details">
+                <h1 class="user-name">{{ user.username }}</h1>
+                <p class="user-email">{{ user.email }}</p>
+                <p class="member-since">Member since {{ user.date_joined|date:"M d, Y" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+                <div class="stat-label">Total Orders</div>
+                <div class="stat-value">{{ orders.count }}</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">✓</div>
+            <div class="stat-content">
+                <div class="stat-label">Completed</div>
+                <div class="stat-value">{{ completed_orders.count }}</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+                <div class="stat-label">Total Spent</div>
+                <div class="stat-value">৳{{ total_spent }}</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+                <div class="stat-label">Member Level</div>
+                <div class="stat-value">Gold</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="profile-tabs">
+        <a href="?tab=orders" class="tab-link {% if order_history_active %}active{% endif %}">
+            <span class="tab-icon">📋</span>
+            <span>Order History</span>
+        </a>
+        <a href="?tab=settings" class="tab-link {% if not order_history_active %}active{% endif %}">
+            <span class="tab-icon">⚙️</span>
+            <span>Settings</span>
+        </a>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Order History Tab -->
+        {% if order_history_active %}
+        <div class="orders-section">
+            {% if orders %}
+            <div class="orders-list">
+                {% for order in orders %}
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-id">Order #{{ order.id }}</div>
+                        <div class="order-status status-{{ order.status }}">{{ order.get_status_display }}</div>
+                    </div>
+
+                    <div class="order-info">
+                        <div class="info-row">
+                            <span class="label">Date:</span>
+                            <span class="value">{{ order.created_at|date:"M d, Y" }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Items:</span>
+                            <span class="value">{{ order.order_items.count }} product(s)</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Total:</span>
+                            <span class="value">৳{{ order.get_total_cost }}</span>
+                        </div>
+                    </div>
+
+                    <div class="order-items">
+                        {% for item in order.order_items.all %}
+                        <div class="item-preview">
+                            <span class="item-name">{{ item.product.name }}</span>
+                            <span class="item-qty">x{{ item.quantity }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="order-actions">
+                        <button class="btn-small btn-primary" onclick="toggleOrderDetails({{ order.id }})">
+                            View Details
+                        </button>
+                    </div>
+
+                    <!-- Order Details (Hidden by default) -->
+                    <div class="order-details" id="order-{{ order.id }}" style="display: none;">
+                        <div class="details-section">
+                            <h4>Shipping Address</h4>
+                            <p>{{ order.first_name }} {{ order.last_name }}</p>
+                            <p>{{ order.address }}</p>
+                            <p>{{ order.city }}, {{ order.postal_code }}</p>
+                            <p>{{ order.phone }}</p>
+                        </div>
+
+                        <div class="details-section">
+                            <h4>Order Items</h4>
+                            {% for item in order.order_items.all %}
+                            <div class="item-detail">
+                                <span class="item-name">{{ item.product.name }}</span>
+                                <span class="item-price">৳{{ item.price }} x {{ item.quantity }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="details-section">
+                            <h4>Order Total</h4>
+                            <div class="total-detail">
+                                <span>Subtotal:</span>
+                                <span>৳{{ order.get_total_cost }}</span>
+                            </div>
+                            <div class="total-detail">
+                                <span>Tax (10%):</span>
+                                <span class="tax-amount" data-total="{{ order.get_total_cost }}">৳0</span>
+                            </div>
+                            <div class="total-detail total">
+                                <span>Total:</span>
+                                <span class="total-amount" data-total="{{ order.get_total_cost }}">৳{{ order.get_total_cost }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <h3>No Orders Yet</h3>
+                <p>You haven't placed any orders yet. Start shopping now!</p>
+                <a href="{% url 'product_list' %}" class="btn btn-primary">
+                    <span>Start Shopping</span>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <!-- Settings Tab -->
+        <div class="settings-section">
+            <div class="settings-card">
+                <h3 class="settings-title">Account Information</h3>
+                <div class="setting-item">
+                    <label>Username</label>
+                    <p class="setting-value">{{ user.username }}</p>
+                </div>
+                <div class="setting-item">
+                    <label>Email</label>
+                    <p class="setting-value">{{ user.email }}</p>
+                </div>
+                <div class="setting-item">
+                    <label>Member Since</label>
+                    <p class="setting-value">{{ user.date_joined|date:"M d, Y" }}</p>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <h3 class="settings-title">Security</h3>
+                <div class="setting-item">
+                    <label>Password</label>
+                    <button class="btn-small btn-secondary">Change Password</button>
+                </div>
+            </div>
+
+            <div class="settings-card danger">
+                <h3 class="settings-title">Danger Zone</h3>
+                <div class="setting-item">
+                    <label>Delete Account</label>
+                    <button class="btn-small btn-danger">Delete Account</button>
+                </div>
+            </div>
+
+            <div class="settings-card logout-card">
+                <h3 class="settings-title">Session</h3>
+                <div class="setting-item">
+                    <label>Logout</label>
+                    <a href="{% url 'user_logout' %}" class="btn-small btn-logout">
+                        <span class="nav-icon">🚪</span>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="{% static 'JRShop/js/profile.js' %}"></script>
+{% endblock %}

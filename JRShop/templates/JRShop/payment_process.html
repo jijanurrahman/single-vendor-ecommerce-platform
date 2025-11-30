@@ -1,0 +1,107 @@
+{% extends 'JRShop/base.html' %}
+{% load static %}
+
+{% block title %}Payment Processing - JR E-Shop{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'JRShop/css/payment.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="navbar-content">
+        <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
+        <div class="navbar-menu">
+            {% if user.is_authenticated %}
+                <a href="{% url 'product_list' %}" class="nav-link">
+                    <span class="nav-icon">🛍️</span>
+                    <span>Products</span>
+                </a>
+                <a href="{% url 'view_cart' %}" class="nav-link cart-link">
+                    <span class="nav-icon">🛒</span>
+                    <span>Cart</span>
+                </a>
+                <a href="{% url 'profile' %}" class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <span>{{ user.username }}</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<div class="payment-container">
+    <!-- Progress Steps -->
+    <div class="progress-steps">
+        <div class="step completed">
+            <div class="step-number">✓</div>
+            <div class="step-label">Checkout</div>
+        </div>
+        <div class="step-line completed"></div>
+        <div class="step active">
+            <div class="step-number">2</div>
+            <div class="step-label">Payment</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-label">Confirmation</div>
+        </div>
+    </div>
+
+    <div class="payment-content">
+        <div class="payment-card">
+            <div class="payment-header">
+                <h1 class="payment-title">Secure Payment</h1>
+                <p class="payment-subtitle">Complete your payment to confirm your order</p>
+            </div>
+
+            <div class="payment-processing">
+                <div class="spinner"></div>
+                <p class="processing-text">Processing your payment...</p>
+                <p class="processing-subtext">Please wait while we securely process your transaction</p>
+            </div>
+
+            <div class="payment-details">
+                <div class="detail-row">
+                    <span class="detail-label">Order ID:</span>
+                    <span class="detail-value">#{{ order.id }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Amount:</span>
+                    <span class="detail-value">৳{{ order.get_total_cost }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status:</span>
+                    <span class="detail-value status-pending">Processing</span>
+                </div>
+            </div>
+
+            <div class="payment-security">
+                <div class="security-item">
+                    <span class="security-icon">🔒</span>
+                    <span class="security-text">SSL Encrypted</span>
+                </div>
+                <div class="security-item">
+                    <span class="security-icon">✓</span>
+                    <span class="security-text">Secure Gateway</span>
+                </div>
+                <div class="security-item">
+                    <span class="security-icon">🛡️</span>
+                    <span class="security-text">Protected Data</span>
+                </div>
+            </div>
+
+            <div class="payment-info">
+                <p class="info-text">
+                    <strong>Note:</strong> You will be redirected to the payment gateway. 
+                    Do not refresh or close this page during the transaction.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'JRShop/js/payment.js' %}"></script>
+{% endblock %}

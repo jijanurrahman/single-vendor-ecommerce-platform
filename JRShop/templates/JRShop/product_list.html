@@ -14,19 +14,21 @@
         <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
         <div class="navbar-menu">
             {% if user.is_authenticated %}
-                <a href="{% url 'product_list' %}" class="nav-link active">Products</a>
-                <a href="{% url 'product_list' %}" class="nav-link">Categories</a>
+                <a href="{% url 'product_list' %}" class="nav-link active">
+                    <span class="nav-icon">🛍️</span>
+                    <span>Products</span>
+                </a>
                 <a href="{% url 'view_cart' %}" class="nav-link cart-link">
-                    Cart
+                    <span class="nav-icon">🛒</span>
+                    <span>Cart</span>
                     {% if cart_items_count %}
                     <span class="cart-badge">{{ cart_items_count }}</span>
                     {% endif %}
                 </a>
-                <div class="user-info">
+                <a href="{% url 'profile' %}" class="user-info">
                     <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
                     <span>{{ user.username }}</span>
-                </div>
-                <a href="{% url 'user_logout' %}" class="btn btn-logout">Logout</a>
+                </a>
             {% else %}
                 <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
                 <a href="{% url 'register' %}" class="btn btn-secondary">Register</a>

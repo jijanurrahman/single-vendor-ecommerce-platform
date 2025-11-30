@@ -21,4 +21,16 @@ urlpatterns = [
     # AJAX Cart URLs
     path('remove-from-cart/<int:item_id>/', views.remove_from_cart, name='remove_from_cart_ajax'),
     path('update-cart-quantity/<int:item_id>/', views.update_cart_quantity, name='update_cart_quantity_ajax'),
+    
+    # Checkout URLs
+    path('checkout/', views.checkout, name='checkout'),
+    
+    # Payment URLs
+    path('payment/process/', views.payment_process, name='payment_process'),
+    path('payment/success/<int:order_id>/', views.payment_success, name='payment_success'),
+    path('payment/fail/<int:order_id>/', views.payment_fail, name='payment_fail'),
+    path('payment/cancel/<int:order_id>/', views.payment_cancel, name='payment_cancel'),
+    
+    # Profile URLs
+    path('profile/', views.profile, name='profile'),
 ]

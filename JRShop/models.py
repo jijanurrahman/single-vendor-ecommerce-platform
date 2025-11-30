@@ -103,11 +103,12 @@ class Order(models.Model):
     address = models.TextField()
     postal_code = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
-    note = models.TextField()
-    transaction_id = models.CharField(max_length=150)
+    note = models.TextField(blank=True, null=True)
+    transaction_id = models.CharField(max_length=150, blank=True, null=True)
+    paid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=15, choices=STATUS)
+    status = models.CharField(max_length=15, choices=STATUS, default='pending')
 
     def __str__(self):
         return f"Order #{self.id}"
@@ -122,7 +123,7 @@ class OrderItem(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def get_cost(self):
-        return self.quantity*self.product.price
+        return self.quantity * self.price
 
 
 

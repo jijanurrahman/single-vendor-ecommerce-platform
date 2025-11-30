@@ -3,8 +3,10 @@ from django.contrib.auth import authenticate, login as auth_login, logout as aut
 from django.contrib import messages
 from django.db.models import Avg, Min, Max, Q
 from django.http import JsonResponse
-from .forms import RegistrationForm
-from .models import Product, Category, Cart, CartItem, Rating
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from .forms import RegistrationForm, CheckoutForm
+from .models import Product, Category, Cart, CartItem, Rating, Order, OrderItem
 
 User = get_user_model()
 
@@ -237,3 +239,184 @@ def update_cart_quantity(request, item_id):
             return JsonResponse({'success': False, 'error': 'Item not found'})
     
     return redirect('view_cart')
+
+
+@login_required
+def checkout(request):
+    try:
+        cart = Cart.objects.get(user=request.user)
+        if not cart.items.exists():
+            messages.warning(request, 'Your cart is empty!')
+            return redirect('view_cart')
+    except Cart.DoesNotExist:
+        messages.warning(request, 'Your cart is empty!')
+        return redirect('view_cart')
+    
+    # Get cart items count for navbar
+    cart_items_count = cart.items.count()
+    
+    if request.method == 'POST':
+        form = CheckoutForm(request.POST)
+        if form.is_valid():
+            # Create order without saving to DB yet
+            order = form.save(commit=False)
+            order.user = request.user
+            order.status = 'pending'
+            order.save()
+            
+            # Create order items from cart items
+            for item in cart.items.all():
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    price=item.product.get_final_price(),
+                    quantity=item.quantity
+                )
+            
+            # Clear cart
+            cart.items.all().delete()
+            
+            # Store order ID in session for payment processing
+            request.session['order_id'] = order.id
+            
+            messages.success(request, 'Order created successfully! Proceeding to payment...')
+            return redirect('payment_process')
+        else:
+            messages.error(request, 'Please fix the errors below.')
+    else:
+        form = CheckoutForm()
+    
+    return render(request, 'JRShop/checkout.html', {
+        'cart': cart,
+        'form': form,
+        'cart_items_count': cart_items_count
+    })
+
+
+@csrf_exempt
+@login_required
+def payment_process(request):
+    order_id = request.session.get('order_id')
+    if not order_id:
+        messages.error(request, 'No order found.')
+        return redirect('home')
+    
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        messages.error(request, 'Order not found.')
+        return redirect('home')
+    
+    return render(request, 'JRShop/payment_process.html', {
+        'order': order
+    })
+
+
+@csrf_exempt
+@login_required
+def payment_success(request, order_id):
+    """Payment success - mark order as paid"""
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        messages.error(request, 'Order not found.')
+        return redirect('home')
+    
+    # Mark order as paid and processing
+    order.paid = True
+    order.status = 'processing'
+    order.transaction_id = str(order.id)
+    order.save()
+    
+    # Decrease product stock
+    for item in order.order_items.all():
+        product = item.product
+        product.stock -= item.quantity
+        if product.stock < 0:
+            product.stock = 0
+        product.save()
+    
+    # Clear session
+    if 'order_id' in request.session:
+        del request.session['order_id']
+    
+    messages.success(request, 'Payment successful! Your order is being processed.')
+    
+    return render(request, 'JRShop/payment_success.html', {
+        'order': order
+    })
+
+
+@csrf_exempt
+@login_required
+def payment_fail(request, order_id):
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        messages.error(request, 'Order not found.')
+        return redirect('home')
+    
+    # Mark order as canceled
+    order.status = 'canceled'
+    order.save()
+    
+    messages.error(request, 'Payment failed. Please try again.')
+    
+    return render(request, 'JRShop/payment_fail.html', {
+        'order': order
+    })
+
+
+@csrf_exempt
+@login_required
+def payment_cancel(request, order_id):
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        messages.error(request, 'Order not found.')
+        return redirect('home')
+    
+    # Mark order as canceled
+    order.status = 'canceled'
+    order.save()
+    
+    messages.warning(request, 'Payment was cancelled. Your order is still saved.')
+    
+    return render(request, 'JRShop/payment_cancel.html', {
+        'order': order
+    })
+
+
+@login_required
+def profile(request):
+    # Get all orders for the user
+    orders = Order.objects.filter(user=request.user).order_by('-created_at')
+    
+    # Get completed orders
+    completed_orders = orders.filter(status='delivered')
+    
+    # Calculate total spent
+    total_spent = sum(order.get_total_cost() for order in orders)
+    
+    # Get cart items count for navbar
+    cart_items_count = 0
+    try:
+        cart = Cart.objects.get(user=request.user)
+        cart_items_count = cart.items.count()
+    except Cart.DoesNotExist:
+        cart_items_count = 0
+    
+    # Check which tab is active
+    tab = request.GET.get('tab', 'orders')
+    
+    return render(request, 'JRShop/profile.html', {
+        'user': request.user,
+        'orders': orders,
+        'completed_orders': completed_orders,
+        'total_spent': total_spent,
+        'order_history_active': (tab == 'orders'),
+        'cart_items_count': cart_items_count
+    })
+
+
+

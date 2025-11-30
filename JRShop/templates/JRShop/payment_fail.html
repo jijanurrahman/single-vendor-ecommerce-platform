@@ -1,0 +1,84 @@
+{% extends 'JRShop/base.html' %}
+{% load static %}
+
+{% block title %}Payment Failed - JR E-Shop{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'JRShop/css/payment.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="navbar-content">
+        <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
+        <div class="navbar-menu">
+            {% if user.is_authenticated %}
+                <a href="{% url 'product_list' %}" class="nav-link">
+                    <span class="nav-icon">🛍️</span>
+                    <span>Products</span>
+                </a>
+                <a href="{% url 'view_cart' %}" class="nav-link cart-link">
+                    <span class="nav-icon">🛒</span>
+                    <span>Cart</span>
+                </a>
+                <a href="{% url 'profile' %}" class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <span>{{ user.username }}</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<div class="payment-container">
+    <div class="payment-content">
+        <div class="error-card">
+            <div class="error-animation">
+                <div class="error-icon">✕</div>
+            </div>
+
+            <h1 class="error-title">Payment Failed</h1>
+            <p class="error-subtitle">Unfortunately, your payment could not be processed</p>
+
+            <div class="error-details">
+                <div class="detail-section">
+                    <h3 class="section-title">What Happened?</h3>
+                    <ul class="reason-list">
+                        <li>Your payment was declined by the bank</li>
+                        <li>Insufficient funds in your account</li>
+                        <li>Incorrect payment information</li>
+                        <li>Transaction timeout</li>
+                    </ul>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">What Can You Do?</h3>
+                    <ul class="action-list">
+                        <li>Check your payment details and try again</li>
+                        <li>Use a different payment method</li>
+                        <li>Contact your bank for assistance</li>
+                        <li>Contact our support team for help</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="error-message">
+                <p>Your order has been saved. You can retry payment anytime.</p>
+                <p>Order ID: <strong>#{{ order.id }}</strong></p>
+            </div>
+
+            <div class="action-buttons">
+                <a href="{% url 'checkout' %}" class="btn btn-primary">
+                    <span>Try Payment Again</span>
+                </a>
+                <a href="{% url 'view_cart' %}" class="btn btn-secondary">
+                    <span>Back to Cart</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'JRShop/js/payment_fail.js' %}"></script>
+{% endblock %}
