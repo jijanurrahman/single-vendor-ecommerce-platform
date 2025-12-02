@@ -70,7 +70,7 @@ class Cart(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.user
+        return f"Cart - {self.user.username}"
     
     def get_total_price(self):
         return sum(item.get_cost() for item in self.items.all())
