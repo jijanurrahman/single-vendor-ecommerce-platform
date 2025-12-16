@@ -2,11 +2,18 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout, get_user_model
 from django.contrib import messages
 from django.db.models import Avg, Min, Max, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
+from decimal import Decimal, InvalidOperation
+import uuid
+import logging
 from .forms import RegistrationForm, CheckoutForm
 from .models import Product, Category, Cart, CartItem, Rating, Order, OrderItem
+from .sslcommerz import generate_sslcommerz_payment, validate_sslcommerz_payment
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -296,52 +303,72 @@ def checkout(request):
 @csrf_exempt
 @login_required
 def payment_process(request):
+    """Process payment initiation and redirect to SSL Commerz gateway"""
     order_id = request.session.get('order_id')
     if not order_id:
+        logger.warning(f"Payment process accessed without order_id in session by user {request.user.id}")
         messages.error(request, 'No order found.')
         return redirect('home')
     
     try:
         order = Order.objects.get(id=order_id, user=request.user)
     except Order.DoesNotExist:
+        logger.error(f"Order {order_id} not found for user {request.user.id}")
         messages.error(request, 'Order not found.')
         return redirect('home')
     
+    # Prevent duplicate payments
+    if order.paid:
+        logger.info(f"Order {order.id} already paid, redirecting to success page")
+        return redirect('payment_success', order_id=order.id)
+
+    # Generate transaction ID if not exists
+    if not order.transaction_id:
+        order.transaction_id = f"{order.id}-{uuid.uuid4().hex[:12]}"
+        order.save(update_fields=['transaction_id'])
+        logger.info(f"Generated transaction ID {order.transaction_id} for Order {order.id}")
+
+    gateway_url = None
+    error_message = None
+    
+    try:
+        payment_data = generate_sslcommerz_payment(request, order)
+        gateway_url = payment_data.get('GatewayPageURL')
+        
+        if not gateway_url:
+            error_message = payment_data.get('failedreason', 'Payment gateway did not return a valid URL')
+            logger.error(f"No gateway URL for Order {order.id}: {error_message}")
+            
+    except Exception as e:
+        error_message = str(e)
+        logger.exception(f"Exception during payment initiation for Order {order.id}: {error_message}")
+
+    if not gateway_url:
+        messages.error(request, 'Payment gateway is unavailable right now. Please try again later.')
+        return redirect('payment_fail', order_id=order.id)
+
+    logger.info(f"Payment gateway URL generated for Order {order.id}, redirecting user")
     return render(request, 'JRShop/payment_process.html', {
-        'order': order
+        'order': order,
+        'gateway_url': gateway_url,
     })
 
 
 @csrf_exempt
 @login_required
 def payment_success(request, order_id):
-    """Payment success - mark order as paid"""
     try:
         order = Order.objects.get(id=order_id, user=request.user)
     except Order.DoesNotExist:
         messages.error(request, 'Order not found.')
         return redirect('home')
-    
-    # Mark order as paid and processing
-    order.paid = True
-    order.status = 'processing'
-    order.transaction_id = str(order.id)
-    order.save()
-    
-    # Decrease product stock
-    for item in order.order_items.all():
-        product = item.product
-        product.stock -= item.quantity
-        if product.stock < 0:
-            product.stock = 0
-        product.save()
-    
-    # Clear session
-    if 'order_id' in request.session:
+
+    if not order.paid:
+        messages.warning(request, 'This order is not paid yet.')
+
+    if 'order_id' in request.session and request.session.get('order_id') == order.id:
         del request.session['order_id']
-    
-    messages.success(request, 'Payment successful! Your order is being processed.')
-    
+
     return render(request, 'JRShop/payment_success.html', {
         'order': order
     })
@@ -355,11 +382,7 @@ def payment_fail(request, order_id):
     except Order.DoesNotExist:
         messages.error(request, 'Order not found.')
         return redirect('home')
-    
-    # Mark order as canceled
-    order.status = 'canceled'
-    order.save()
-    
+
     messages.error(request, 'Payment failed. Please try again.')
     
     return render(request, 'JRShop/payment_fail.html', {
@@ -375,16 +398,202 @@ def payment_cancel(request, order_id):
     except Order.DoesNotExist:
         messages.error(request, 'Order not found.')
         return redirect('home')
-    
-    # Mark order as canceled
-    order.status = 'canceled'
-    order.save()
-    
+
     messages.warning(request, 'Payment was cancelled. Your order is still saved.')
     
     return render(request, 'JRShop/payment_cancel.html', {
         'order': order
     })
+
+
+@login_required
+def payment_retry(request, order_id):
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        messages.error(request, 'Order not found.')
+        return redirect('home')
+
+    if order.paid:
+        return redirect('payment_success', order_id=order.id)
+
+    request.session['order_id'] = order.id
+    return redirect('payment_process')
+
+
+@csrf_exempt
+@require_http_methods(["POST", "GET"])
+def sslcommerz_success(request, order_id):
+    """Handle successful payment callback from SSL Commerz"""
+    logger.info(f"SSL Commerz success callback received for Order {order_id}")
+    order = get_object_or_404(Order, id=order_id)
+
+    tran_id = (request.POST.get('tran_id') or request.GET.get('tran_id') or '').strip()
+    val_id = (request.POST.get('val_id') or request.GET.get('val_id') or '').strip()
+
+    logger.info(f"Order {order_id}: tran_id={tran_id}, val_id={val_id}")
+
+    # Validate transaction ID
+    if order.transaction_id and tran_id and tran_id != order.transaction_id:
+        logger.error(f"Transaction ID mismatch for Order {order_id}: expected {order.transaction_id}, got {tran_id}")
+        return HttpResponseBadRequest('Invalid transaction')
+
+    # Prevent duplicate payment processing
+    if order.paid:
+        logger.info(f"Order {order_id} already marked as paid, redirecting to success")
+        return redirect('payment_success', order_id=order.id)
+
+    # Validate payment with SSL Commerz
+    if not val_id:
+        logger.error(f"No validation ID provided for Order {order_id}")
+        order.status = 'pending'
+        order.save(update_fields=['status'])
+        return redirect('payment_fail', order_id=order.id)
+
+    try:
+        validation = validate_sslcommerz_payment(val_id)
+    except Exception as e:
+        logger.exception(f"Payment validation failed for Order {order_id}: {str(e)}")
+        order.status = 'pending'
+        order.save(update_fields=['status'])
+        return redirect('payment_fail', order_id=order.id)
+
+    # Check validation status
+    status = (validation.get('status') or '').upper()
+    if status not in ('VALID', 'VALIDATED'):
+        logger.warning(f"Invalid payment status for Order {order_id}: {status}")
+        order.status = 'pending'
+        order.save(update_fields=['status'])
+        return redirect('payment_fail', order_id=order.id)
+
+    # Verify payment amount
+    try:
+        paid_amount = Decimal(str(validation.get('amount', '0')))
+    except (InvalidOperation, TypeError) as e:
+        logger.error(f"Invalid amount in validation for Order {order_id}: {validation.get('amount')}")
+        paid_amount = Decimal('0')
+
+    order_amount = Decimal(str(order.get_total_cost()))
+    if paid_amount and paid_amount != order_amount:
+        logger.error(f"Amount mismatch for Order {order_id}: expected {order_amount}, got {paid_amount}")
+        order.status = 'pending'
+        order.save(update_fields=['status'])
+        return redirect('payment_fail', order_id=order.id)
+
+    # Mark order as paid and update stock
+    order.paid = True
+    order.status = 'processing'
+    if tran_id:
+        order.transaction_id = tran_id
+    order.save(update_fields=['paid', 'status', 'transaction_id'])
+    logger.info(f"Order {order_id} marked as paid successfully")
+
+    # Update product stock
+    for item in order.order_items.all():
+        product = item.product
+        old_stock = product.stock
+        product.stock -= item.quantity
+        if product.stock < 0:
+            product.stock = 0
+        product.save(update_fields=['stock'])
+        logger.info(f"Updated stock for Product {product.id}: {old_stock} -> {product.stock}")
+
+    return redirect('payment_success', order_id=order.id)
+
+
+@csrf_exempt
+@require_http_methods(["POST", "GET"])
+def sslcommerz_fail(request, order_id):
+    """Handle failed payment callback from SSL Commerz"""
+    logger.warning(f"SSL Commerz fail callback received for Order {order_id}")
+    order = get_object_or_404(Order, id=order_id)
+
+    tran_id = (request.POST.get('tran_id') or request.GET.get('tran_id') or '').strip()
+    fail_reason = request.POST.get('error') or request.GET.get('error') or 'Unknown error'
+    
+    logger.info(f"Order {order_id} payment failed: tran_id={tran_id}, reason={fail_reason}")
+    
+    if order.transaction_id and tran_id and tran_id != order.transaction_id:
+        logger.error(f"Transaction ID mismatch in fail callback for Order {order_id}")
+        return HttpResponseBadRequest('Invalid transaction')
+
+    if not order.paid:
+        order.status = 'pending'
+        order.save(update_fields=['status'])
+
+    return redirect('payment_fail', order_id=order.id)
+
+
+@csrf_exempt
+@require_http_methods(["POST", "GET"])
+def sslcommerz_cancel(request, order_id):
+    """Handle cancelled payment callback from SSL Commerz"""
+    logger.info(f"SSL Commerz cancel callback received for Order {order_id}")
+    order = get_object_or_404(Order, id=order_id)
+
+    tran_id = (request.POST.get('tran_id') or request.GET.get('tran_id') or '').strip()
+    logger.info(f"Order {order_id} payment cancelled: tran_id={tran_id}")
+    
+    if order.transaction_id and tran_id and tran_id != order.transaction_id:
+        logger.error(f"Transaction ID mismatch in cancel callback for Order {order_id}")
+        return HttpResponseBadRequest('Invalid transaction')
+
+    if not order.paid:
+        order.status = 'pending'
+        order.save(update_fields=['status'])
+
+    return redirect('payment_cancel', order_id=order.id)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sslcommerz_ipn(request):
+    """Handle Instant Payment Notification (IPN) from SSL Commerz"""
+    tran_id = (request.POST.get('tran_id') or '').strip()
+    val_id = (request.POST.get('val_id') or '').strip()
+
+    logger.info(f"IPN received: tran_id={tran_id}, val_id={val_id}")
+
+    if not tran_id or not val_id:
+        logger.warning("Invalid IPN: missing tran_id or val_id")
+        return HttpResponseBadRequest('Invalid IPN')
+
+    try:
+        order = Order.objects.get(transaction_id=tran_id)
+    except Order.DoesNotExist:
+        logger.warning(f"IPN for non-existent order: tran_id={tran_id}")
+        return HttpResponse('OK')
+
+    if order.paid:
+        logger.info(f"IPN for already paid Order {order.id}")
+        return HttpResponse('OK')
+
+    try:
+        validation = validate_sslcommerz_payment(val_id)
+    except Exception as e:
+        logger.exception(f"IPN validation failed for Order {order.id}: {str(e)}")
+        return HttpResponse('OK')
+
+    status = (validation.get('status') or '').upper()
+    if status not in ('VALID', 'VALIDATED'):
+        logger.warning(f"IPN invalid status for Order {order.id}: {status}")
+        return HttpResponse('OK')
+
+    # Mark order as paid
+    order.paid = True
+    order.status = 'processing'
+    order.save(update_fields=['paid', 'status'])
+    logger.info(f"IPN: Order {order.id} marked as paid")
+
+    # Update stock
+    for item in order.order_items.all():
+        product = item.product
+        product.stock -= item.quantity
+        if product.stock < 0:
+            product.stock = 0
+        product.save(update_fields=['stock'])
+
+    return HttpResponse('OK')
 
 
 @login_required

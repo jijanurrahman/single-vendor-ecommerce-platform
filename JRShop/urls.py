@@ -30,6 +30,13 @@ urlpatterns = [
     path('payment/success/<int:order_id>/', views.payment_success, name='payment_success'),
     path('payment/fail/<int:order_id>/', views.payment_fail, name='payment_fail'),
     path('payment/cancel/<int:order_id>/', views.payment_cancel, name='payment_cancel'),
+
+    path('payment/retry/<int:order_id>/', views.payment_retry, name='payment_retry'),
+
+    path('payment/sslcommerz/success/<int:order_id>/', views.sslcommerz_success, name='sslcommerz_success'),
+    path('payment/sslcommerz/fail/<int:order_id>/', views.sslcommerz_fail, name='sslcommerz_fail'),
+    path('payment/sslcommerz/cancel/<int:order_id>/', views.sslcommerz_cancel, name='sslcommerz_cancel'),
+    path('payment/ipn/', views.sslcommerz_ipn, name='sslcommerz_ipn'),
     
     # Profile URLs
     path('profile/', views.profile, name='profile'),

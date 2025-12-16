@@ -14,18 +14,18 @@
         <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
         <div class="navbar-menu">
             {% if user.is_authenticated %}
-                <a href="{% url 'product_list' %}" class="nav-link">
-                    <span class="nav-icon">🛍️</span>
-                    <span>Products</span>
-                </a>
-                <a href="{% url 'view_cart' %}" class="nav-link cart-link">
-                    <span class="nav-icon">🛒</span>
-                    <span>Cart</span>
-                </a>
-                <a href="{% url 'profile' %}" class="user-info">
-                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
-                    <span>{{ user.username }}</span>
-                </a>
+            <a href="{% url 'product_list' %}" class="nav-link">
+                <span class="nav-icon">🛍️</span>
+                <span>Products</span>
+            </a>
+            <a href="{% url 'view_cart' %}" class="nav-link cart-link">
+                <span class="nav-icon">🛒</span>
+                <span>Cart</span>
+            </a>
+            <a href="{% url 'profile' %}" class="user-info">
+                <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                <span>{{ user.username }}</span>
+            </a>
             {% endif %}
         </div>
     </div>
@@ -57,10 +57,23 @@
                 <p class="payment-subtitle">Complete your payment to confirm your order</p>
             </div>
 
-            <div class="payment-processing">
-                <div class="spinner"></div>
+            <div class="payment-processing" role="status" aria-live="polite">
+                <div class="spinner" aria-hidden="true"></div>
                 <p class="processing-text">Processing your payment...</p>
                 <p class="processing-subtext">Please wait while we securely process your transaction</p>
+
+                <noscript>
+                    <div class="error-message" style="margin-top: 20px; color: #ef4444;">
+                        <p><strong>JavaScript is disabled.</strong></p>
+                        <p>Please enable JavaScript to proceed with the payment, or click the button below:</p>
+                        <br>
+                        {% if gateway_url %}
+                        <a href="{{ gateway_url }}" class="btn btn-primary">Proceed to Payment Gateway</a>
+                        {% else %}
+                        <p>Payment gateway URL unavailable. Please contact support.</p>
+                        {% endif %}
+                    </div>
+                </noscript>
             </div>
 
             <div class="payment-details">
@@ -95,7 +108,7 @@
 
             <div class="payment-info">
                 <p class="info-text">
-                    <strong>Note:</strong> You will be redirected to the payment gateway. 
+                    <strong>Note:</strong> You will be redirected to the payment gateway.
                     Do not refresh or close this page during the transaction.
                 </p>
             </div>
@@ -103,5 +116,8 @@
     </div>
 </div>
 
+<script>
+    window.SSLCOMMERZ_GATEWAY_URL = "{{ gateway_url|escapejs }}";
+</script>
 <script src="{% static 'JRShop/js/payment.js' %}"></script>
 {% endblock %}

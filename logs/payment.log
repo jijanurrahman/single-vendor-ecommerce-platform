@@ -1,0 +1,5 @@
+INFO 2025-12-16 18:17:53,500 views Generated transaction ID 4-4d9f8936d1f3 for Order 4
+WARNING 2025-12-16 18:17:53,500 sslcommerz Invalid phone number format: 24324323423
+INFO 2025-12-16 18:17:53,502 sslcommerz Initiating SSL Commerz payment for Order #4, Transaction ID: 4-4d9f8936d1f3
+INFO 2025-12-16 18:17:53,747 sslcommerz SSL Commerz payment initiated successfully for Order #4
+INFO 2025-12-16 18:17:53,748 views Payment gateway URL generated for Order 4, redirecting user

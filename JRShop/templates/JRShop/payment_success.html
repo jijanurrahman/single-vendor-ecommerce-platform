@@ -14,18 +14,18 @@
         <a href="{% url 'home' %}" class="navbar-brand">JR E-Shop</a>
         <div class="navbar-menu">
             {% if user.is_authenticated %}
-                <a href="{% url 'product_list' %}" class="nav-link">
-                    <span class="nav-icon">🛍️</span>
-                    <span>Products</span>
-                </a>
-                <a href="{% url 'view_cart' %}" class="nav-link cart-link">
-                    <span class="nav-icon">🛒</span>
-                    <span>Cart</span>
-                </a>
-                <a href="{% url 'profile' %}" class="user-info">
-                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
-                    <span>{{ user.username }}</span>
-                </a>
+            <a href="{% url 'product_list' %}" class="nav-link">
+                <span class="nav-icon">🛍️</span>
+                <span>Products</span>
+            </a>
+            <a href="{% url 'view_cart' %}" class="nav-link cart-link">
+                <span class="nav-icon">🛒</span>
+                <span>Cart</span>
+            </a>
+            <a href="{% url 'profile' %}" class="user-info">
+                <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                <span>{{ user.username }}</span>
+            </a>
             {% endif %}
         </div>
     </div>
